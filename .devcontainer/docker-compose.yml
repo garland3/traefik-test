@@ -1,0 +1,55 @@
+version: '3'
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace
+    environment:
+      - PYTHONPATH=/workspace
+    command: sleep infinity
+
+  auth_app:
+    build: ../auth_app
+    environment:
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - AUTHORITY=${AUTHORITY}
+      - OAUTH_PROVIDER=${OAUTH_PROVIDER}
+      - REDIRECT_URI=${REDIRECT_URI}
+      - SCOPE=${SCOPE}
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../auth_app:/app
+    depends_on:
+      - dev
+
+  chatbot_app:
+    build: ../chatbot_app
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    ports:
+      - "5001:5001"
+    volumes:
+      - ../chatbot_app:/app
+    depends_on:
+      - dev
+
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - auth_app
+      - chatbot_app 

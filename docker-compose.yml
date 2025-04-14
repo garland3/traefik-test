@@ -1,0 +1,40 @@
+version: '3'
+
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  auth_app:
+    build: ./auth_app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=5000"
+    environment:
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - AUTHORITY=${AUTHORITY}
+
+  chatbot_app:
+    build: ./chatbot_app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.chatbot.rule=PathPrefix(`/chatbot`)"
+      - "traefik.http.routers.chatbot.entrypoints=web"
+      - "traefik.http.services.chatbot.loadbalancer.server.port=5001"
+      - "traefik.http.middlewares.auth.headers.customrequestheaders.X-User-Email=${user.email}"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - auth_app 
